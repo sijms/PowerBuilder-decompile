@@ -118,7 +118,7 @@ def pb_call_func(stack, pcode, routine):
         class_type = pcode.args[1] & 0xc000
         class_index = pcode.args[1] & 0x3fff
         if class_type == 0x4000:
-            if pcode.args[1] != 0x40CF:
+            if pcode.args[1] not in (0x40CF, 0x40D0):
                 raise Exception("unknown module no.: {}".format(hex(pcode.args[1])))
             func = c_40CF.get(pcode.args[0])
             if not func:
