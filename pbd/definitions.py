@@ -139,6 +139,8 @@ def write_json(file, json_obj):
 
 
 def extract_string(buffer, start_index):
+    if len(buffer) > start_index and buffer[start_index] == 0:
+        return ''
     ch = buffer[start_index: start_index + 2].decode('utf16')
     output = ''
     while ch and ch != '\0':
@@ -449,14 +451,19 @@ class ConstData(object):
 
     def get_decimal(self, loc):
         buffer = self.buff_1[loc: loc + 0x10]
-        neg = buffer[0xe] != 0
-        power = buffer[0xf]
-        number_buff = buffer[:0xe] + b"\x00\x00"
-        n1, n2 = struct.unpack("<QQ", number_buff)
-        number = ((n2 << 0x40) | n1) / (10 ** power)
-        if neg:
-            number = number * -1
-        return number
+        if len(buffer) == 0:
+            return 0
+        elif len(buffer) == 1:
+            return buffer[0]
+        else:
+            neg = buffer[0xe] != 0
+            power = buffer[0xf]
+            number_buff = buffer[:0xe] + b"\x00\x00"
+            n1, n2 = struct.unpack("<QQ", number_buff)
+            number = ((n2 << 0x40) | n1) / (10 ** power)
+            if neg:
+                number = number * -1
+            return number
         # print(dump(self.buff_1[loc: loc + 0x10]))
         # return 0
 
@@ -1132,14 +1139,15 @@ class Group(object):
             self.h1, \
             self.h2, \
             self.system_class_id, \
-            self.h3, self.h4, \
-            c_date_id, \
-            m_date_id, \
-            self.h5 = struct.unpack("<HHHHIIII", file.read(0x18))
+            self.h3, self.h4 = struct.unpack("<HHHHI", file.read(0xC))
+            if self.h1 == 0x14f:
+                c_date_id, m_date_id, self.h5 = struct.unpack("<QQI", file.read(0x14))
+            else:
+                c_date_id, m_date_id, self.h5 = struct.unpack("<III", file.read(0xC))
             self.create_date = datetime.utcfromtimestamp(c_date_id)
             self.modification_date = datetime.utcfromtimestamp(m_date_id)
-
             length_1 = struct.unpack("<H", file.read(2))[0]
+            # if length_1 > 0:
             buffer_1 = file.read(length_1 * 0xc)
             glb_const = ConstData(file)
             index = 0

@@ -1632,3 +1632,4 @@ e_413a = dict()
 e_413a[0] = EnumInfo('bidirectional', 0, 0)
 e_413a[1] = EnumInfo('downloadonly', 1, 0)
 e_413a[2] = EnumInfo('uploadonly', 2, 0)
+enum_main[0x413a] = e_413a

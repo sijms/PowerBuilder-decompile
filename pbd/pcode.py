@@ -118,7 +118,7 @@ def pb_call_func(stack, pcode, routine):
         class_type = pcode.args[1] & 0xc000
         class_index = pcode.args[1] & 0x3fff
         if class_type == 0x4000:
-            if pcode.args[1] not in (0x40CF, 0x40D0):
+            if pcode.args[1] not in (0x40CF, 0x40D0, 0x40D5, 0x407C):
                 raise Exception("unknown module no.: {}".format(hex(pcode.args[1])))
             func = c_40CF.get(pcode.args[0])
             if not func:
@@ -317,6 +317,14 @@ def pb_dot(stack, pcode, routine):
     left = stack.pop()
     stack.append("{}.{}".format(left, right))
 
+def pb_db_start(stack, pcode, routine):
+    stack.pop()
+    return "BEGIN"
+
+def pb_db_stop(stack, pcode, routine):
+    stack.pop()
+    return "END"
+
 
 def pb_db_commit(stack, pcode, routine):
     stack.pop()
@@ -439,7 +447,7 @@ def pb_db_select(stack, pcode, routine):
     return "\n".join(lines)
 
 
-def pb_db_open(stack, pcode, routine):
+def pb_db_open_dyn(stack, pcode, routine):
     arg_2 = stack.pop()
     arg_1 = stack.pop()
     return "db_open_dyn({}, {})".format(arg_1, arg_2)
@@ -464,6 +472,16 @@ def pb_db_fetch(stack, pcode, routine):
     while len(stack) > 0:
         stack.pop()
     return ret_val
+
+
+def pb_db_open(stack, pcode, routine):
+    if len(stack) == 2:
+        sqlsa = stack.pop()
+        cursor = stack.pop()
+        return "OPEN {}:{}".format(cursor, sqlsa)
+    else:
+        cursor = stack.pop()
+        return "OPEN {}".format(cursor)
 
 
 def pb_db_close(stack, pcode, routine):
@@ -666,12 +684,12 @@ g_codes = [
     {'index': 0x2, 'name': 'SM_JUMPTRUE', 'arg_num': 1, 'unknown': 0xffffffff, 'addr': 0x10d5c510, 'func': pb_jump},
     {'index': 0x3, 'name': 'SM_JUMPFALSE', 'arg_num': 1, 'unknown': 0xffffffff, 'addr': 0x10d5c4f0,'func': pb_jump},
     {'index': 0x4, 'name': 'SM_JUMP', 'arg_num': 1, 'unknown': 0x0, 'addr': 0x10d5cfa0, 'func': pb_jump},
-    {'index': 0x5, 'name': 'SM_DBSTART', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d5d880},
+    {'index': 0x5, 'name': 'SM_DBSTART', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d5d880, 'func': pb_db_start},
     {'index': 0x6, 'name': 'SM_DBCOMMIT', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d5cd40, 'func': pb_db_commit},
     {'index': 0x7, 'name': 'SM_DBROLLBACK', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d5d020, 'func': pb_db_rollback},
-    {'index': 0x8, 'name': 'SM_DBSTOP', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d5d800},
+    {'index': 0x8, 'name': 'SM_DBSTOP', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d5d800, 'func': pb_db_stop},
     {'index': 0x9, 'name': 'SM_DBCLOSE', 'arg_num': 0, 'unknown': 0xfffffffe, 'addr': 0x10d5d540, 'func': pb_db_close},
-    {'index': 0xa, 'name': 'SM_DBOPEN', 'arg_num': 1, 'unknown': 0x100, 'addr': 0x10d5d900},
+    {'index': 0xa, 'name': 'SM_DBOPEN', 'arg_num': 1, 'unknown': 0x100, 'addr': 0x10d5d900, 'func': pb_db_open},
     {'index': 0xb, 'name': 'SM_DBDELETE', 'arg_num': 3, 'unknown': 0x100, 'addr': 0x10d5d0a0, 'func': pb_db_delete},
     {'index': 0xc, 'name': 'SM_DBUPDATE', 'arg_num': 3, 'unknown': 0x100, 'addr': 0x10d5db00, 'func': pb_db_update},
     {'index': 0xd, 'name': 'SM_DBEXECUTE', 'arg_num': 1, 'unknown': 0x100, 'addr': 0x10d5d320},
@@ -684,7 +702,7 @@ g_codes = [
     {'index': 0x14, 'name': 'SM_LVALUE_EXPR', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d5dbb0, 'func': pb_lvalue_expr},
     {'index': 0x15, 'name': 'SM_DBEXECUTEDYN', 'arg_num': 3, 'unknown': 0x100, 'addr': 0x10d5d760},
     {'index': 0x16, 'name': 'SM_DBPREPARE', 'arg_num': 0, 'unknown': 0xfffffffd, 'addr': 0x10d5d5f0, 'func': pb_db_prepare},
-    {'index': 0x17, 'name': 'SM_DBOPENDYN', 'arg_num': 3, 'unknown': 0x100, 'addr': 0x10d5dcf0, 'func': pb_db_open},
+    {'index': 0x17, 'name': 'SM_DBOPENDYN', 'arg_num': 3, 'unknown': 0x100, 'addr': 0x10d5dcf0, 'func': pb_db_open_dyn},
     {'index': 0x18, 'name': 'SM_DBEXECDYNPROC', 'arg_num': 3, 'unknown': 0x100, 'addr': 0x10d5da80},
     {'index': 0x19, 'name': 'SM_DBDESCRIBE', 'arg_num': 0, 'unknown': 0xfffffffe, 'addr': 0x10d5cea0},
     {'index': 0x1a, 'name': 'SM_DBSELECTBLOB', 'arg_num': 4, 'unknown': 0x100, 'addr': 0x10d5d220, 'func': pb_db_select},
@@ -823,8 +841,8 @@ g_codes = [
     {'index': 0x9f, 'name': 'SM_CNV_FLOAT_TO_DEC', 'arg_num': 1, 'unknown': 0x0, 'addr': 0x10d52460, 'func': pb_empty},
     {'index': 0xa0, 'name': 'SM_CNV_DOUBLE_TO_DEC', 'arg_num': 1, 'unknown': 0x0, 'addr': 0x10d524f0, 'func': pb_empty},
     {'index': 0xa1, 'name': 'SM_CNV_DOUBLE_TO_FLOAT', 'arg_num': 1, 'unknown': 0x0, 'addr': 0x10d52850, 'func': pb_empty},
-    {'index': 0xa2, 'name': 'SM_CNV_STRING_TO_CHAR', 'arg_num': 2, 'unknown': 0x0, 'addr': 0x10d528d0},
-    {'index': 0xa3, 'name': 'SM_CNV_CHAR_TO_STRING', 'arg_num': 1, 'unknown': 0x0, 'addr': 0x10d52920},
+    {'index': 0xa2, 'name': 'SM_CNV_STRING_TO_CHAR', 'arg_num': 2, 'unknown': 0x0, 'addr': 0x10d528d0, 'func': pb_empty},
+    {'index': 0xa3, 'name': 'SM_CNV_CHAR_TO_STRING', 'arg_num': 1, 'unknown': 0x0, 'addr': 0x10d52920, 'func': pb_empty},
     {'index': 0xa4, 'name': 'SM_CNV_STRING_TO_CHARARRAY', 'arg_num': 2, 'unknown': 0x0, 'addr': 0x10d529f0},
     {'index': 0xa5, 'name': 'SM_CNV_CHARARRAY_TO_STRING', 'arg_num': 1, 'unknown': 0x0, 'addr': 0x10d46ec0},
     {'index': 0xa6, 'name': 'SM_EQ_INT', 'arg_num': 0, 'unknown': 0xffffffff, 'addr': 0x10d46f40, 'func': pb_compare},
